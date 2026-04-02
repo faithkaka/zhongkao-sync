@@ -249,20 +249,17 @@
             }
             async uploadAvatar(file, userId) {
                 const fileName = userId + '_' + Date.now() + '.jpg';
-                
-                // 直接使用 Supabase Storage API
-                const formData = new FormData();
-                formData.append(file.name || 'avatar.jpg', file);
-                
                 const uploadUrl = this.url + '/storage/v1/object/avatars/' + encodeURIComponent(fileName);
-                console.log('📤 Uploading to:', uploadUrl);
+                console.log('📤 Uploading:', uploadUrl);
                 
                 const fetchRes = await fetch(uploadUrl, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + window.SUPABASE_CONFIG.key
+                    headers: { 
+                        'apikey': window.SUPABASE_CONFIG.key,
+                        'Authorization': 'Bearer ' + window.SUPABASE_CONFIG.key,
+                        'Content-Type': file.type || 'image/jpeg'
                     },
-                    body: formData
+                    body: file
                 });
                 
                 // 上传成功返回 200，但响应体可能为空
