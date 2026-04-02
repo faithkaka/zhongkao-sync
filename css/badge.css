@@ -1,0 +1,21 @@
+/* 错题数量徽章样式 */
+.quick-count {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(255,107,107,0.3);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.9; }
+}
