@@ -274,14 +274,13 @@
                 }
             }
             async deleteAvatar(fileName) {
-                const res = await fetch(this.url + '/storage/v1/object/avatars/' + fileName, { 
+                const res = await fetch(this.url + '/storage/v1/object/avatars/' + encodeURIComponent(fileName), { 
                     method: 'DELETE', 
                     headers: { 
-                        'apikey': this.headers.apikey,
-                        'Authorization': 'Bearer ' + this.headers.apikey 
+                        'Authorization': 'Bearer ' + window.SUPABASE_CONFIG.key 
                     } 
                 });
-                return { data: res.ok, error: res.ok ? null : {} };
+                return { data: res.ok, error: res.ok ? null : { message: 'Delete failed' } };
             }
         }
         
@@ -345,10 +344,15 @@
             },
             async clearState() { await this._client.delete('practice_state', 'st_' + this.getUid()); },
             async uploadAvatar(file, userId) {
+                console.log('🔧 Storage.uploadAvatar called');
                 const r = await this._client.uploadAvatar(file, userId);
-                if (r.error) throw r.error;
-                console.log('Avatar uploaded:', r.data);
+                if (r.error) {
+                    console.error('Upload failed:', r.error);
+                    throw r.error;
+                }
+                console.log('✅ Upload success, updating user...');
                 await this._client.update('users', userId, { avatar_url: r.data.url });
+                console.log('✅ User avatar updated');
                 return r.data.url;
             },
             async removeAvatar(userId) {

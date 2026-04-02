@@ -1,0 +1,77 @@
+// 测试头像上传 - 独立 HTML 文件
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>头像上传测试</title>
+<style>
+body { font-family: sans-serif; padding: 20px; }
+.status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+.ok { background: #d4edda; color: #155724; }
+.err { background: #f8d7da; color: #721c24; }
+img { max-width: 200px; border-radius: 10px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<h1>🧪 头像上传测试</h1>
+
+<input type="file" id="file-input" accept="image/*" />
+<button onclick="testUpload()">上传</button>
+
+<div id="status"></div>
+<div id="preview"></div>
+
+<script>
+const CONFIG = {
+    url: 'https://ykdrfaxnskddeadjelfo.supabase.co',
+    key: 'sb_publishable_bllSTGpgcriW48780EwXxQ_6kKvUs10'
+};
+
+async function testUpload() {
+    const file = document.getElementById('file-input').files[0];
+    if (!file) return alert('请选择文件');
+    
+    const status = document.getElementById('status');
+    status.innerHTML = '<div class="status">⏳ 上传中...</div>';
+    
+    const fileName = 'test_' + Date.now() + '_' + file.name;
+    const formData = new FormData();
+    formData.append('', file);
+    
+    const uploadUrl = CONFIG.url + '/storage/v1/object/avatars/' + encodeURIComponent(fileName);
+    console.log('📤 Uploading to:', uploadUrl);
+    
+    try {
+        const res = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + CONFIG.key
+            },
+            body: formData
+        });
+        
+        console.log('Response status:', res.status);
+        console.log('Response headers:', [...res.headers.entries()]);
+        
+        // 读取响应文本（不解析 JSON）
+        const text = await res.text();
+        console.log('Response body:', text);
+        
+        if (res.status === 200 || res.status === 201) {
+            const publicUrl = CONFIG.url + '/storage/v1/object/public/avatars/' + encodeURIComponent(fileName);
+            status.innerHTML = '<div class="status ok">✅ 上传成功！</div>' +
+                '<p>访问 URL: <a href="' + publicUrl + '" target="_blank">' + publicUrl + '</a></p>' +
+                '<img src="' + publicUrl + '" />';
+        } else {
+            status.innerHTML = '<div class="status err">❌ 上传失败：' + res.status + '</div>' +
+                '<pre>' + text + '</pre>';
+        }
+    } catch (e) {
+        console.error('Error:', e);
+        status.innerHTML = '<div class="status err">❌ 错误：' + e.message + '</div>';
+    }
+}
+</script>
+</body>
+</html>
