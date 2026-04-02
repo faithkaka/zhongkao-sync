@@ -2,70 +2,68 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta http-equiv="Cache-Control" content="no-cache">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>浙江初中刷题打卡 - 云同步版</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/user.css">
+    <link rel="stylesheet" href="css/badge.css">
+    <style>
+    #loading{position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);display:flex;justify-content:center;align-items:center;z-index:9999;transition:opacity .5s}
+    .loading-content{text-align:center;color:#fff}
+    .spinner{width:50px;height:50px;border:4px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .error-box{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#f8d7da;color:#721c24;padding:15px 25px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:10000;max-width:90%;text-align:center}
+    </style>
 </head>
 <body>
+    <div id="loading"><div class="loading-content"><div class="spinner"></div><div id="load-status">🚀 正在加载...</div></div></div>
+
     <div id="app">
         <!-- 首页 -->
         <div id="home-page" class="page active">
             <div class="header">
                 <div class="header-user">
-                    <button class="user-switch-btn" onclick="app.showUserManager()">
+                    <button class="user-switch-btn" onclick="showUserManager()">
                         <span class="user-icon">👤</span>
                         <span class="user-name" id="current-username">加载中...</span>
                         <span class="user-arrow">▼</span>
                     </button>
                 </div>
                 <h1>📚 浙江初中刷题打卡</h1>
-                <p class="subtitle">2026 年最新版教材 · 云同步版</p>
-                <p class="subtitle" style="font-size:12px; opacity:0.7; margin-top:5px; max-width:90%;">
-                    💡 数据自动同步，手机电脑互通
-                </p>
+                <p class="subtitle">云同步版</p>
             </div>
             
             <div class="grade-selector">
                 <h2>选择学期</h2>
                 <div class="semester-buttons">
-                    <button class="semester-btn" data-semester="upper">上册</button>
-                    <button class="semester-btn selected" data-semester="lower">下册</button>
+                    <button class="semester-btn" data-sem="upper">上册</button>
+                    <button class="semester-btn selected" data-sem="lower">下册</button>
                 </div>
             </div>
             
-            <div class="quick-start-btn" style="text-align:center; margin:20px 0;">
-                <button class="grade-btn" style="width:100%; padding:15px; font-size:16px;" onclick="app.startPractice()">直接开始今日练习</button>
+            <div style="text-align:center;margin:20px 0;">
+                <button class="grade-btn" style="width:100%;padding:15px;font-size:16px;" onclick="startPractice()">直接开始今日练习</button>
             </div>
             
-            <div class="stats-preview" id="stats-preview">
+            <div class="stats-preview">
                 <h3>📊 学习统计</h3>
                 <div class="stats-grid">
-                    <div class="stat-item">
-                        <div class="stat-value" id="stat-days">0</div>
-                        <div class="stat-label">打卡天数</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="stat-total">0</div>
-                        <div class="stat-label">总题数</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="stat-correct">0%</div>
-                        <div class="stat-label">正确率</div>
-                    </div>
+                    <div class="stat-item"><div class="stat-value" id="stat-days">0</div><div class="stat-label">打卡天数</div></div>
+                    <div class="stat-item"><div class="stat-value" id="stat-total">0</div><div class="stat-label">总题数</div></div>
+                    <div class="stat-item"><div class="stat-value" id="stat-correct">0%</div><div class="stat-label">正确率</div></div>
                 </div>
             </div>
             
             <div class="quick-access">
                 <h2>🚀 快捷入口</h2>
                 <div class="quick-buttons">
-                    <button class="quick-btn" onclick="app.showPage('wrong')">
+                    <button class="quick-btn" onclick="showPage('wrong')">
                         <span class="quick-icon">📝</span>
                         <span class="quick-text">错题本</span>
+                        <span class="quick-count" id="wrong-count" style="display:none">0</span>
                     </button>
-                    <button class="quick-btn" onclick="app.showPage('history')">
+                    <button class="quick-btn" onclick="showPage('history')">
                         <span class="quick-icon">📅</span>
                         <span class="quick-text">历史记录</span>
                     </button>
@@ -73,118 +71,89 @@
             </div>
         </div>
 
-        <!-- 练习页面 -->
+        <!-- 练习页 -->
         <div id="practice-page" class="page">
             <div class="header">
-                <button class="back-btn" onclick="app.showPage('home')">← 返回</button>
+                <button class="back-btn" onclick="showPage('home')">← 返回</button>
                 <h1 id="practice-title">每日打卡</h1>
                 <div class="progress-info">
                     <span id="question-counter">1/30</span>
                     <span id="timer">00:00</span>
                 </div>
             </div>
-            
             <div class="question-container">
-                <div class="subject-tag" id="subject-tag">加载中...</div>
-                <div class="question-text" id="question-text">加载中...</div>
+                <div class="subject-tag" id="subject-tag">语文</div>
+                <div class="question-text" id="question-text">题目加载中...</div>
                 <div class="options" id="options-container"></div>
             </div>
-            
-            <div class="feedback" id="feedback" style="display:none;">
+            <div class="feedback" id="feedback" style="display:none">
                 <div class="feedback-icon" id="feedback-icon"></div>
                 <div class="feedback-text" id="feedback-text"></div>
                 <div class="explanation" id="explanation"></div>
-                <button class="next-btn" onclick="app.nextQuestion()">下一题 →</button>
+                <button class="next-btn" onclick="nextQuestion()">下一题 →</button>
             </div>
-            
-            <button class="submit-btn" id="submit-btn" onclick="app.submitAnswer()">提交答案</button>
+            <button class="submit-btn" id="submit-btn" onclick="submitAnswer()">提交答案</button>
         </div>
 
-        <!-- 完成页面 -->
+        <!-- 完成页 -->
         <div id="complete-page" class="page">
-            <div class="header">
-                <h1>🎉 打卡完成!</h1>
-            </div>
-            
+            <div class="header"><h1>🎉 打卡完成!</h1></div>
             <div class="result-summary">
-                <div class="score-circle">
-                    <div class="score-value" id="final-score">0</div>
-                    <div class="score-label">总分</div>
-                </div>
-                
+                <div class="score-circle"><div class="score-value" id="final-score">0</div><div class="score-label">总分</div></div>
                 <div class="result-details">
-                    <div class="result-row">
-                        <span>答对题数</span>
-                        <span id="result-correct">0/30</span>
-                    </div>
-                    <div class="result-row">
-                        <span>正确率</span>
-                        <span id="result-rate">0%</span>
-                    </div>
-                    <div class="result-row">
-                        <span>用时</span>
-                        <span id="result-time">00:00</span>
-                    </div>
+                    <div class="result-row"><span>答对题数</span><span id="result-correct">0/30</span></div>
+                    <div class="result-row"><span>正确率</span><span id="result-rate">0%</span></div>
+                    <div class="result-row"><span>用时</span><span id="result-time">00:00</span></div>
                 </div>
             </div>
-            
-            <div class="subject-breakdown" id="subject-breakdown">
-                <h3>各科表现</h3>
-            </div>
-            
+            <div class="subject-breakdown" id="subject-breakdown"><h3>各科表现</h3></div>
             <div class="action-buttons">
-                <button class="action-btn primary" onclick="app.showPage('home')">返回首页</button>
-                <button class="action-btn" onclick="app.showWrongAnswers()">查看错题</button>
+                <button class="action-btn primary" onclick="showPage('home')">返回首页</button>
+                <button class="action-btn" onclick="showPage('wrong')">查看错题</button>
             </div>
         </div>
 
         <!-- 错题本 -->
         <div id="wrong-page" class="page">
             <div class="header">
-                <button class="back-btn" onclick="app.showPage('home')">← 返回</button>
+                <button class="back-btn" onclick="showPage('home')">← 返回</button>
                 <h1>📝 错题本</h1>
             </div>
-            
             <div class="wrong-filters">
-                <button class="filter-btn active" data-filter="all" onclick="app.renderWrongList('all')">全部</button>
-                <button class="filter-btn" data-filter="语文" onclick="app.renderWrongList('语文')">语文</button>
-                <button class="filter-btn" data-filter="数学" onclick="app.renderWrongList('数学')">数学</button>
-                <button class="filter-btn" data-filter="英语" onclick="app.renderWrongList('英语')">英语</button>
-                <button class="filter-btn" data-filter="科学" onclick="app.renderWrongList('科学')">科学</button>
-                <button class="filter-btn" data-filter="社会" onclick="app.renderWrongList('社会')">社会</button>
+                <button class="filter-btn active" onclick="renderWrongList('all')">全部</button>
+                <button class="filter-btn" onclick="renderWrongList('语文')">语文</button>
+                <button class="filter-btn" onclick="renderWrongList('数学')">数学</button>
+                <button class="filter-btn" onclick="renderWrongList('英语')">英语</button>
+                <button class="filter-btn" onclick="renderWrongList('科学')">科学</button>
+                <button class="filter-btn" onclick="renderWrongList('社会')">社会</button>
             </div>
-            
             <div class="wrong-list" id="wrong-list"></div>
-            
-            <button class="clear-btn" onclick="app.clearWrongBook()" style="display:none;" id="clear-wrong-btn">清空错题本</button>
+            <button class="clear-btn" onclick="clearWrongBook()" id="clear-wrong-btn" style="display:none">清空错题本</button>
         </div>
 
         <!-- 历史记录 -->
         <div id="history-page" class="page">
             <div class="header">
-                <button class="back-btn" onclick="app.showPage('home')">← 返回</button>
+                <button class="back-btn" onclick="showPage('home')">← 返回</button>
                 <h1>📅 历史记录</h1>
             </div>
-            
             <div class="history-list" id="history-list"></div>
         </div>
 
         <!-- 用户管理 -->
-        <div id="user-manager-page" class="page">
+        <div id="user-page" class="page">
             <div class="header">
-                <button class="back-btn" onclick="app.showPage('home')">← 返回</button>
+                <button class="back-btn" onclick="showPage('home')">← 返回</button>
                 <h1>👤 用户管理</h1>
             </div>
-            
             <div class="user-manager">
                 <div class="add-user-section">
                     <h3>➕ 新建用户</h3>
                     <div class="add-user-form">
-                        <input type="text" id="new-username-input" placeholder="输入用户名" maxlength="10">
-                        <button class="add-user-btn" onclick="app.addUser()">添加</button>
+                        <input type="text" id="new-username" placeholder="输入用户名" maxlength="10">
+                        <button class="add-user-btn" onclick="addUser()">添加</button>
                     </div>
                 </div>
-                
                 <div class="user-list-section">
                     <h3>👥 用户列表</h3>
                     <div class="user-list" id="user-list"></div>
@@ -193,20 +162,336 @@
         </div>
     </div>
 
-    <!-- 配置（实际使用时会创建 config.js 并填写） -->
-    <script src="config.js?v=20260402-3"></script>
-    
-    <!-- Supabase 客户端 -->
-    <script src="js/supabase-client.js?v=20260402-3"></script>
-    
-    <!-- 云同步存储 -->
-    <script src="js/storage-sync.js?v=20260402-3"></script>
+    <!-- ============ 核心代码 - 内联加载，避免依赖问题 ============ -->
+    <script>
+    (function(){
+        'use strict';
+        
+        // 1. 配置 - 直接内嵌，不依赖外部文件
+        window.SUPABASE_CONFIG = {
+            url: 'https://ykdrfaxnskddeadjelfo.supabase.co',
+            key: 'sb_publishable_bllSTGpgcriW48780EwXxQ_6kKvUs10'
+        };
+        console.log('✅ Config loaded');
+        
+        // 2. Supabase 轻量客户端
+        class SupabaseClient {
+            constructor(url, key) {
+                this.url = url.replace(/\/$/, '');
+                this.headers = {
+                    'apikey': key,
+                    'Authorization': 'Bearer ' + key,
+                    'Content-Type': 'application/json'
+                };
+            }
+            async query(table, opts = {}) {
+                const params = new URLSearchParams();
+                if (opts.eq) Object.entries(opts.eq).forEach(([k,v]) => params.append(k, 'eq.' + v));
+                params.append('select', opts.select || '*');
+                if (opts.order) params.append('order', opts.order.column + '.' + (opts.order.ascending ? 'asc' : 'desc'));
+                const res = await fetch(this.url + '/rest/v1/' + table + '?' + params, { headers: this.headers });
+                if (!res.ok) { const e = await res.json(); return { data: null, error: e }; }
+                return { data: await res.json(), error: null };
+            }
+            async insert(table, data) {
+                const res = await fetch(this.url + '/rest/v1/' + table, {
+                    method: 'POST',
+                    headers: { ...this.headers, 'Prefer': 'return=representation' },
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) { const e = await res.json(); return { data: null, error: e }; }
+                return { data: await res.json(), error: null };
+            }
+            async delete(table, id) {
+                const res = await fetch(this.url + '/rest/v1/' + table + '?id=eq.' + id, { method: 'DELETE', headers: this.headers });
+                return { data: res.ok, error: res.ok ? null : {} };
+            }
+            async deleteAll(table, filters) {
+                const params = new URLSearchParams();
+                Object.entries(filters).forEach(([k,v]) => params.append(k, 'eq.' + v));
+                const res = await fetch(this.url + '/rest/v1/' + table + '?' + params, { method: 'DELETE', headers: this.headers });
+                return { data: res.ok, error: res.ok ? null : {} };
+            }
+            async update(table, id, data) {
+                const res = await fetch(this.url + '/rest/v1/' + table + '?id=eq.' + id, { method: 'PATCH', headers: this.headers, body: JSON.stringify(data) });
+                if (!res.ok) { const e = await res.json(); return { data: null, error: e }; }
+                return { data: await res.json(), error: null };
+            }
+        }
+        
+        let _client = null;
+        window.initSupabase = function(url, key) {
+            _client = new SupabaseClient(url, key);
+            console.log('✅ Supabase client initialized:', url);
+            return _client;
+        };
+        window.getSupabase = function() { return _client; };
+        
+        // 3. 存储模块
+        window.Storage = {
+            _client: null,
+            async init() {
+                if (!window.SUPABASE_CONFIG) throw new Error('Supabase config not found');
+                this._client = window.initSupabase(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.key);
+                console.log('✅ Storage initialized');
+                return true;
+            },
+            getUid() { return sessionStorage.getItem('quiz_user'); },
+            setUid(id) { sessionStorage.setItem('quiz_user', id); },
+            async getUsers() { const r = await this._client.query('users', { order: { column: 'created_at', ascending: false } }); return r.data || []; },
+            async createUser(name) {
+                const id = 'u_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+                await this._client.insert('users', { id, name, total_days: 0, total_questions: 0 });
+                this.setUid(id);
+                return { id, name };
+            },
+            async deleteUser(id) {
+                await this._client.deleteAll('practice_history', { user_id: id });
+                await this._client.deleteAll('wrong_questions', { user_id: id });
+                await this._client.delete('users', id);
+                if (this.getUid() === id) sessionStorage.removeItem('quiz_user');
+            },
+            async getStats() {
+                const uid = this.getUid();
+                if (!uid) return { totalDays: 0, totalQuestions: 0, totalCorrect: 0, accuracy: 0 };
+                const r = await this._client.query('practice_history', { eq: { user_id: uid } });
+                const h = r.data || [];
+                const tq = h.reduce((s, x) => s + (x.total_questions || 0), 0);
+                const tc = h.reduce((s, x) => s + (x.correct_count || 0), 0);
+                return { totalDays: new Set(h.map(x => x.created_at?.split('T')[0])).size, totalQuestions: tq, totalCorrect: tc, accuracy: tq ? Math.round(tc / tq * 100) : 0 };
+            },
+            async addHistory(r) { await this._client.insert('practice_history', { id: 'h_' + Date.now(), user_id: this.getUid(), ...r }); },
+            async addWrong(q, ua) {
+                const uid = this.getUid();
+                const ex = await this._client.query('wrong_questions', { eq: { user_id: uid, question_id: q.id } });
+                if (ex.data && ex.data.length > 0) return null;
+                await this._client.insert('wrong_questions', { id: 'w_' + Date.now(), user_id: uid, question_id: q.id, question: q.question, options: q.options, answer: q.answer, user_answer: ua, explanation: q.explanation, subject: q.subject, knowledge_point: q.knowledgePoint || '' });
+            },
+            async getWrongs() { const r = await this._client.query('wrong_questions', { eq: { user_id: this.getUid() }, order: { column: 'created_at', ascending: false } }); return r.data || []; },
+            async delWrong(id) { await this._client.delete('wrong_questions', id); },
+            async clearWrongs() { await this._client.deleteAll('wrong_questions', { user_id: this.getUid() }); },
+            async getState() { const r = await this._client.query('practice_state', { eq: { user_id: this.getUid() } }); if (!r.data || r.data.length === 0) return null; const s = r.data[0]; return { grade: s.grade, semester: s.semester, questions: s.questions, currentIndex: s.current_index, userAnswers: s.user_answers, elapsedSeconds: s.elapsed_seconds }; },
+            async saveState(s) {
+                const uid = this.getUid();
+                const ex = await this._client.query('practice_state', { eq: { user_id: uid } });
+                const d = { id: 'st_' + uid, user_id: uid, grade: s.selectedGrade, semester: s.selectedSemester, questions: s.currentQuestions, current_index: s.currentIndex, user_answers: s.userAnswers, elapsed_seconds: s.elapsedSeconds };
+                if (ex.data && ex.data.length > 0) await this._client.update('practice_state', 'st_' + uid, d); else await this._client.insert('practice_state', d);
+            },
+            async clearState() { await this._client.delete('practice_state', 'st_' + this.getUid()); }
+        };
+        
+        console.log('✅ All core modules loaded');
+    })();
+    </script>
     
     <!-- 题库数据 -->
-    <script src="js/data.js?v=20260402-3"></script>
-    <script src="js/grade7-lower.js?v=20260402-3"></script>
+    <script src="js/data.js"></script>
+    <script src="js/grade7-lower.js"></script>
     
     <!-- 应用逻辑 -->
-    <script src="js/app.js?v=20260402-3"></script>
+    <script>
+    const app = {
+        state: { sem: 'lower', questions: [], idx: 0, answers: [], selected: null, elapsed: 0 },
+        semesters: { upper: '上册', lower: '下册' },
+        
+        async init() {
+            console.log('🚀 App initializing...');
+            try {
+                await Storage.init();
+                console.log('✅ Storage init done');
+                await this.checkUser();
+                console.log('✅ User check done');
+                this.bindEvents();
+                await this.updateStats();
+                await this.updateWrongCount();
+                await this.checkResume();
+                console.log('✅ App init complete');
+            } catch (e) {
+                console.error('❌ Init error:', e);
+                document.getElementById('load-status').textContent = '❌ 加载失败：' + e.message;
+                setTimeout(() => {
+                    const err = document.createElement('div');
+                    err.className = 'error-box';
+                    err.innerHTML = '<strong>❌ 初始化失败</strong><br>' + e.message + '<br><small>请检查控制台</small>';
+                    document.body.appendChild(err);
+                }, 1000);
+            }
+            document.getElementById('loading').style.opacity = '0';
+            setTimeout(() => document.getElementById('loading').remove(), 500);
+        },
+        
+        async checkUser() {
+            const users = await Storage.getUsers();
+            console.log('Users:', users.length);
+            if (users.length === 0) {
+                await Storage.createUser('默认用户');
+            }
+            const uid = Storage.getUid();
+            if (!uid || !users.find(u => u.id === uid)) Storage.setUid(users[0].id);
+            const user = users.find(u => u.id === Storage.getUid());
+            document.getElementById('current-username').textContent = user ? user.name : '未登录';
+            console.log('Current user:', document.getElementById('current-username').textContent);
+        },
+        
+        bindEvents() {
+            document.querySelectorAll('.semester-btn').forEach(b => {
+                b.onclick = () => {
+                    document.querySelectorAll('.semester-btn').forEach(x => x.classList.remove('selected'));
+                    b.classList.add('selected');
+                    app.state.sem = b.dataset.sem;
+                };
+            });
+        },
+        
+        async updateStats() {
+            const s = await Storage.getStats();
+            document.getElementById('stat-days').textContent = s.totalDays;
+            document.getElementById('stat-total').textContent = s.totalQuestions;
+            document.getElementById('stat-correct').textContent = s.accuracy + '%';
+        },
+        
+        async updateWrongCount() {
+            const ws = await Storage.getWrongs();
+            const badge = document.getElementById('wrong-count');
+            if (badge) {
+                badge.textContent = ws.length;
+                badge.style.display = ws.length > 0 ? 'inline-block' : 'none';
+            }
+        },
+        
+        async checkResume() {
+            const st = await Storage.getState();
+            if (st && st.questions && st.questions.length > 0 && confirm('继续未完成的练习？')) {
+                app.state.questions = st.questions; app.state.idx = st.currentIndex; app.state.answers = st.userAnswers; app.state.elapsed = st.elapsedSeconds;
+                showPage('practice'); startTimer(); renderQ();
+            }
+        },
+        
+        async startPractice() {
+            const qs = getTodayQuestions(7, app.state.sem);
+            if (!qs || qs.length === 0) return alert('题库加载失败');
+            app.state.questions = qs; app.state.idx = 0; app.state.answers = []; app.state.selected = null; app.state.elapsed = 0;
+            document.getElementById('practice-title').textContent = '七年级' + app.semesters[app.state.sem] + ' 每日打卡';
+            showPage('practice'); startTimer(); renderQ();
+        },
+        
+        showPage(p) {
+            document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+            document.getElementById(p + '-page').classList.add('active');
+            if (p === 'wrong') { renderWrongList('all'); this.updateWrongCount(); }
+            if (p === 'history') renderHistory();
+        }
+    };
+    
+    let timer = null;
+    function startTimer() {
+        if (timer) clearInterval(timer);
+        timer = setInterval(async () => {
+            app.state.elapsed++;
+            const m = Math.floor(app.state.elapsed / 60).toString().padStart(2, '0');
+            const s = (app.state.elapsed % 60).toString().padStart(2, '0');
+            document.getElementById('timer').textContent = m + ':' + s;
+            if (document.getElementById('practice-page').classList.contains('active')) await Storage.saveState(app.state);
+        }, 1000);
+    }
+    
+    function renderQ() {
+        const q = app.state.questions[app.state.idx];
+        if (!q) return;
+        document.getElementById('question-counter').textContent = (app.state.idx + 1) + '/' + app.state.questions.length;
+        document.getElementById('subject-tag').textContent = q.subject;
+        document.getElementById('subject-tag').className = 'subject-tag ' + q.subject.toLowerCase();
+        document.getElementById('question-text').textContent = q.question;
+        document.getElementById('options-container').innerHTML = q.options.map((o, i) => '<button class="option" data-idx="' + i + '" onclick="selectOpt(' + i + ')">' + String.fromCharCode(65 + i) + '. ' + o + '</button>').join('');
+        document.getElementById('feedback').style.display = 'none';
+        app.state.selected = null;
+    }
+    
+    function selectOpt(i) {
+        document.querySelectorAll('.option').forEach((b, idx) => b.classList.toggle('selected', idx === i));
+        app.state.selected = i;
+    }
+    
+    async function submitAnswer() {
+        if (app.state.selected === null) return alert('请选择答案');
+        const q = app.state.questions[app.state.idx];
+        const ok = app.state.selected === q.answer;
+        app.state.answers.push({ idx: app.state.idx, selected: app.state.selected, ok: ok, subject: q.subject });
+        if (!ok) { await Storage.addWrong(q, app.state.selected); app.updateWrongCount(); }
+        
+        const fb = document.getElementById('feedback'), ic = document.getElementById('feedback-icon'), tx = document.getElementById('feedback-text'), ex = document.getElementById('explanation');
+        fb.style.display = 'block'; fb.className = 'feedback ' + (ok ? 'correct' : 'wrong');
+        ic.textContent = ok ? '✅' : '❌';
+        tx.textContent = ok ? '回答正确！' : ('正确答案：' + String.fromCharCode(65 + q.answer));
+        ex.textContent = q.explanation || '';
+        
+        if (app.state.idx >= app.state.questions.length - 1) setTimeout(complete, 1000);
+    }
+    
+    function nextQuestion() {
+        if (app.state.idx < app.state.questions.length - 1) { app.state.idx++; renderQ(); } else complete();
+    }
+    
+    async function complete() {
+        clearInterval(timer);
+        const okCount = app.state.answers.filter(a => a.ok).length;
+        const total = app.state.questions.length;
+        const acc = Math.round(okCount / total * 100);
+        await Storage.addHistory({ grade: 7, semester: app.state.sem, totalQuestions: total, correctCount: okCount, accuracy: acc, duration: app.state.elapsed, subjectStats: {}, questionIds: app.state.questions.map(q => q.id) });
+        await Storage.clearState();
+        
+        document.getElementById('final-score').textContent = acc;
+        document.getElementById('result-correct').textContent = okCount + '/' + total;
+        document.getElementById('result-rate').textContent = acc + '%';
+        document.getElementById('result-time').textContent = Math.floor(app.state.elapsed / 60).toString().padStart(2, '0') + ':' + (app.state.elapsed % 60).toString().padStart(2, '0');
+        
+        const sjs = {}; app.state.questions.forEach((q, i) => { if (!sjs[q.subject]) sjs[q.subject] = { t: 0, c: 0 }; sjs[q.subject].t++; if (app.state.answers[i]?.ok) sjs[q.subject].c++; });
+        document.getElementById('subject-breakdown').innerHTML = '<h3>各科表现</h3>' + Object.entries(sjs).map(([n, d]) => '<div class="subject-stat"><span class="subject-name">' + n + '</span><span class="subject-score">' + d.c + '/' + d.t + ' (' + Math.round(d.c / d.t * 100) + '%)</span></div>').join('');
+        app.showPage('complete');
+        app.updateStats();
+    }
+    
+    async function renderWrongList(f) {
+        const ws = await Storage.getWrongs();
+        const filtered = f === 'all' ? ws : ws.filter(w => w.subject === f);
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.textContent === (f === 'all' ? '全部' : f)));
+        const c = document.getElementById('wrong-list');
+        if (filtered.length === 0) { c.innerHTML = '<div class="empty-tip">暂无错题</div>'; document.getElementById('clear-wrong-btn').style.display = 'none'; return; }
+        c.innerHTML = filtered.map(w => '<div class="wrong-item"><div class="wrong-header"><span class="wrong-subject ' + w.subject.toLowerCase() + '">' + w.subject + '</span><button class="wrong-delete" onclick="delWrong(\'' + w.id + '\')">删除</button></div><div class="wrong-question">' + w.question + '</div><div class="wrong-answer"><span>你的：' + String.fromCharCode(65 + w.user_answer) + '</span><span>正确：' + String.fromCharCode(65 + w.answer) + '</span></div><div class="wrong-explanation">' + (w.explanation || '') + '</div></div>').join('');
+        document.getElementById('clear-wrong-btn').style.display = 'block';
+        app.updateWrongCount();
+    }
+    
+    async function delWrong(id) { await Storage.delWrong(id); renderWrongList('all'); app.updateWrongCount(); }
+    async function clearWrongBook() { if (confirm('确定清空？')) { await Storage.clearWrongs(); renderWrongList('all'); app.updateWrongCount(); } }
+    
+    async function renderHistory() {
+        const r = await Storage._client.query('practice_history', { eq: { user_id: Storage.getUid() }, order: { column: 'created_at', ascending: false } });
+        const c = document.getElementById('history-list');
+        if (!r.data || r.data.length === 0) { c.innerHTML = '<div class="empty-tip">暂无记录</div>'; return; }
+        c.innerHTML = r.data.map(h => '<div class="history-item"><div class="history-header"><span>' + h.created_at.split('T')[0] + '</span><span>七年级' + (h.semester === 'upper' ? '上' : '下') + '册</span></div><div class="history-stats"><span>' + h.total_questions + '题</span><span>' + h.correct_count + '对</span><span>' + h.accuracy + '%</span><span>' + Math.floor(h.duration / 60) + '分' + (h.duration % 60) + '秒</span></div></div>').join('');
+    }
+    
+    async function showUserManager() {
+        app.showPage('user');
+        const users = await Storage.getUsers();
+        document.getElementById('user-list').innerHTML = users.map(u => '<div class="user-item"><div class="user-info"><div class="user-avatar">👤</div><div class="user-details"><div class="user-name-text">' + u.name + '</div><div class="user-stats">' + (u.total_days || 0) + '天·' + (u.total_questions || 0) + '题</div></div></div><div class="user-actions">' + (u.id === Storage.getUid() ? '<span class="user-current-badge">当前</span>' : '<button class="user-btn switch" onclick="Storage.setUid(\'' + u.id + '\');location.reload()">切换</button>') + '<button class="user-btn delete" onclick="Storage.deleteUser(\'' + u.id + '\');location.reload()">删除</button></div></div>').join('');
+    }
+    
+    async function addUser() {
+        const input = document.getElementById('new-username');
+        if (!input.value.trim()) return alert('输入用户名');
+        await Storage.createUser(input.value.trim());
+        input.value = '';
+        await app.checkUser();
+        await app.updateStats();
+        showUserManager();
+    }
+    
+    function showPage(p) { app.showPage(p); }
+    function startPractice() { app.startPractice(); }
+    
+    window.addEventListener('load', () => app.init());
+    </script>
 </body>
 </html>
