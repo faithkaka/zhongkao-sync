@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>启动诊断</title>
+    <style>
+        body { font-family: system-ui; padding: 20px; background: #f5f5f5; }
+        .card { background: #fff; padding: 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .status { padding: 8px 12px; border-radius: 6px; margin: 8px 0; }
+        .ok { background: #d4edda; color: #155724; }
+        .err { background: #f8d7da; color: #721c24; }
+        .warn { background: #fff3cd; color: #856404; }
+        pre { background: #f0f0f0; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
+        h2 { margin-top: 0; color: #333; }
+        button { padding: 10px 20px; background: #667eea; color: #fff; border: none; border-radius: 6px; cursor: pointer; margin: 5px; }
+        button:hover { opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <h1>🔧 应用启动诊断</h1>
+    
+    <div class="card">
+        <h2>1. 配置文件检查</h2>
+        <div id="config-check"></div>
+    </div>
+    
+    <div class="card">
+        <h2>2. 客户端检查</h2>
+        <div id="client-check"></div>
+    </div>
+    
+    <div class="card">
+        <h2>3. 存储模块检查</h2>
+        <div id="storage-check"></div>
+    </div>
+    
+    <div class="card">
+        <h2>4. 测试连接</h2>
+        <button onclick="testConnection()">开始测试</button>
+        <div id="test-result"></div>
+    </div>
+    
+    <div class="card">
+        <h2>📝 错误日志</h2>
+        <pre id="logs">等待日志...</pre>
+    </div>
+    
+    <button onclick="location.href='index-fixed.html'" style="background:#28a745;">进入刷题应用</button>
+    
+    <script>
+        const logs = [];
+        function log(msg) {
+            logs.push(msg);
+            document.getElementById('logs').textContent = logs.join('\n');
+            console.log(msg);
+        }
+        
+        // Check 1: Config
+        (function() {
+            const div = document.getElementById('config-check');
+            if (typeof window.SUPABASE_CONFIG !== 'undefined') {
+                if (window.SUPABASE_CONFIG.url && window.SUPABASE_CONFIG.key) {
+                    div.innerHTML = '<div class="status ok">✅ config.js 已加载</div>' +
+                        '<pre>URL: ' + window.SUPABASE_CONFIG.url + '\nKEY: ' + window.SUPABASE_CONFIG.key.substr(0, 30) + '...</pre>';
+                    log('✅ Config loaded');
+                } else {
+                    div.innerHTML = '<div class="status err">❌ 配置值为空</div>';
+                    log('❌ Config values empty');
+                }
+            } else {
+                div.innerHTML = '<div class="status err">❌ config.js 未加载</div>';
+                log('❌ Config not loaded');
+            }
+        })();
+        
+        // Check 2: Client
+        (function() {
+            const div = document.getElementById('client-check');
+            if (typeof window.initSupabase === 'function') {
+                div.innerHTML = '<div class="status ok">✅ supabase-client.js 已加载</div>' +
+                    '<pre>initSupabase: available\ngetSupabase: ' + (typeof window.getSupabase) + '</pre>';
+                log('✅ Client loaded');
+            } else {
+                div.innerHTML = '<div class="status err">❌ supabase-client.js 未加载或函数未暴露</div>' +
+                    '<pre>window.initSupabase: ' + typeof window.initSupabase + '\nwindow.getSupabase: ' + typeof window.getSupabase + '</pre>';
+                log('❌ Client not loaded or functions not exposed');
+            }
+        })();
+        
+        // Check 3: Storage
+        (function() {
+            const div = document.getElementById('storage-check');
+            if (typeof window.Storage !== 'undefined') {
+                div.innerHTML = '<div class="status ok">✅ storage-sync.js 已加载</div>' +
+                    '<pre>Storage: available\nMethods: ' + Object.keys(window.Storage).length + '</pre>';
+                log('✅ Storage loaded');
+            } else {
+                div.innerHTML = '<div class="status err">❌ storage-sync.js 未加载</div>';
+                log('❌ Storage not loaded');
+            }
+        })();
+        
+        // Test connection
+        async function testConnection() {
+            const resultDiv = document.getElementById('test-result');
+            resultDiv.innerHTML = '<div class="status warn">⏳ 测试中...</div>';
+            
+            try {
+                if (!window.SUPABASE_CONFIG || !window.SUPABASE_CONFIG.url) {
+                    throw new Error('配置未加载');
+                }
+                
+                const client = window.initSupabase(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.key);
+                if (!client) {
+                    throw new Error('初始化失败');
+                }
+                
+                log('✅ Supabase client initialized');
+                
+                const { data, error } = await client.query('users', { limit: 1 });
+                
+                if (error) {
+                    throw error;
+                }
+                
+                resultDiv.innerHTML = '<div class="status ok">✅ 连接成功！数据表正常</div>' +
+                    '<pre>查询结果：' + (Array.isArray(data) ? data.length + ' 条记录' : '成功') + '</pre>';
+                log('✅ Connection test passed');
+                
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="status err">❌ 测试失败</div>' +
+                    '<pre>错误：' + error.message + '</pre>';
+                log('❌ Test failed: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

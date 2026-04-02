@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>浙江初中刷题打卡 - 云同步版</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/user.css">
+    <style>
+        #loading {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s;
+        }
+        .loading-content { text-align: center; color: #fff; }
+        .spinner {
+            width: 50px; height: 50px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <div style="font-size:18px;margin-bottom:10px;">🚀 正在加载</div>
+            <div id="load-status" style="font-size:14px;opacity:0.8;">初始化中...</div>
+        </div>
+    </div>
+
+    <div id="app">
+        <!-- 首页 -->
+        <div id="home-page" class="page active">
+            <div class="header">
+                <div class="header-user">
+                    <button class="user-switch-btn" onclick="app.showUserManager()">
+                        <span class="user-icon">👤</span>
+                        <span class="user-name" id="current-username">加载中...</span>
+                        <span class="user-arrow">▼</span>
+                    </button>
+                </div>
+                <h1>📚 浙江初中刷题打卡</h1>
+                <p class="subtitle">2026 年最新版教材 · 云同步版</p>
+            </div>
+            
+            <div class="grade-selector">
+                <h2>选择学期</h2>
+                <div class="semester-buttons">
+                    <button class="semester-btn" data-semester="upper">上册</button>
+                    <button class="semester-btn selected" data-semester="lower">下册</button>
+                </div>
+            </div>
+            
+            <div class="quick-start-btn" style="text-align:center;margin:20px 0;">
+                <button class="grade-btn" style="width:100%;padding:15px;font-size:16px;" onclick="app.startPractice()">直接开始今日练习</button>
+            </div>
+            
+            <div class="stats-preview" id="stats-preview">
+                <h3>📊 学习统计</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="stat-days">0</div>
+                        <div class="stat-label">打卡天数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="stat-total">0</div>
+                        <div class="stat-label">总题数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="stat-correct">0%</div>
+                        <div class="stat-label">正确率</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="quick-access">
+                <h2>🚀 快捷入口</h2>
+                <div class="quick-buttons">
+                    <button class="quick-btn" onclick="app.showPage('wrong')">
+                        <span class="quick-icon">📝</span>
+                        <span class="quick-text">错题本</span>
+                    </button>
+                    <button class="quick-btn" onclick="app.showPage('history')">
+                        <span class="quick-icon">📅</span>
+                        <span class="quick-text">历史记录</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 练习页面 -->
+        <div id="practice-page" class="page">
+            <div class="header">
+                <button class="back-btn" onclick="app.showPage('home')">← 返回</button>
+                <h1 id="practice-title">每日打卡</h1>
+                <div class="progress-info">
+                    <span id="question-counter">1/30</span>
+                    <span id="timer">00:00</span>
+                </div>
+            </div>
+            
+            <div class="question-container">
+                <div class="subject-tag" id="subject-tag">加载中...</div>
+                <div class="question-text" id="question-text">加载中...</div>
+                <div class="options" id="options-container"></div>
+            </div>
+            
+            <div class="feedback" id="feedback" style="display:none;">
+                <div class="feedback-icon" id="feedback-icon"></div>
+                <div class="feedback-text" id="feedback-text"></div>
+                <div class="explanation" id="explanation"></div>
+                <button class="next-btn" onclick="app.nextQuestion()">下一题 →</button>
+            </div>
+            
+            <button class="submit-btn" id="submit-btn" onclick="app.submitAnswer()">提交答案</button>
+        </div>
+
+        <!-- 完成页面 -->
+        <div id="complete-page" class="page">
+            <div class="header">
+                <h1>🎉 打卡完成!</h1>
+            </div>
+            
+            <div class="result-summary">
+                <div class="score-circle">
+                    <div class="score-value" id="final-score">0</div>
+                    <div class="score-label">总分</div>
+                </div>
+                
+                <div class="result-details">
+                    <div class="result-row"><span>答对题数</span><span id="result-correct">0/30</span></div>
+                    <div class="result-row"><span>正确率</span><span id="result-rate">0%</span></div>
+                    <div class="result-row"><span>用时</span><span id="result-time">00:00</span></div>
+                </div>
+            </div>
+            
+            <div class="subject-breakdown" id="subject-breakdown"><h3>各科表现</h3></div>
+            
+            <div class="action-buttons">
+                <button class="action-btn primary" onclick="app.showPage('home')">返回首页</button>
+                <button class="action-btn" onclick="app.showWrongAnswers()">查看错题</button>
+            </div>
+        </div>
+
+        <!-- 错题本 -->
+        <div id="wrong-page" class="page">
+            <div class="header">
+                <button class="back-btn" onclick="app.showPage('home')">← 返回</button>
+                <h1>📝 错题本</h1>
+            </div>
+            
+            <div class="wrong-filters">
+                <button class="filter-btn active" onclick="app.renderWrongList('all')">全部</button>
+                <button class="filter-btn" onclick="app.renderWrongList('语文')">语文</button>
+                <button class="filter-btn" onclick="app.renderWrongList('数学')">数学</button>
+                <button class="filter-btn" onclick="app.renderWrongList('英语')">英语</button>
+                <button class="filter-btn" onclick="app.renderWrongList('科学')">科学</button>
+                <button class="filter-btn" onclick="app.renderWrongList('社会')">社会</button>
+            </div>
+            
+            <div class="wrong-list" id="wrong-list"></div>
+            <button class="clear-btn" onclick="app.clearWrongBook()" id="clear-wrong-btn" style="display:none;">清空错题本</button>
+        </div>
+
+        <!-- 历史记录 -->
+        <div id="history-page" class="page">
+            <div class="header">
+                <button class="back-btn" onclick="app.showPage('home')">← 返回</button>
+                <h1>📅 历史记录</h1>
+            </div>
+            <div class="history-list" id="history-list"></div>
+        </div>
+
+        <!-- 用户管理 -->
+        <div id="user-manager-page" class="page">
+            <div class="header">
+                <button class="back-btn" onclick="app.showPage('home')">← 返回</button>
+                <h1>👤 用户管理</h1>
+            </div>
+            
+            <div class="user-manager">
+                <div class="add-user-section">
+                    <h3>➕ 新建用户</h3>
+                    <div class="add-user-form">
+                        <input type="text" id="new-username-input" placeholder="输入用户名" maxlength="10">
+                        <button class="add-user-btn" onclick="app.addUser()">添加</button>
+                    </div>
+                </div>
+                <div class="user-list-section">
+                    <h3>👥 用户列表</h3>
+                    <div class="user-list" id="user-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 脚本加载 -->
+    <script src="config.js?t=4"></script>
+    <script src="js/supabase-client.js?t=4"></script>
+    <script src="js/storage-sync.js?t=4"></script>
+    <script src="js/data.js?t=4"></script>
+    <script src="js/grade7-lower.js?t=4"></script>
+    <script src="js/app-new.js?t=4"></script>
+    
+    <script>
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                var loading = document.getElementById('loading');
+                if (loading) {
+                    loading.style.opacity = '0';
+                    setTimeout(function() { 
+                        try { loading.remove(); } catch(e) {}
+                    }, 500);
+                }
+            }, 300);
+        });
+    </script>
+</body>
+</html>

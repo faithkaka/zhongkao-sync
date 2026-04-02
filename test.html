@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase 连接测试</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: #fff;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 24px;
+        }
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .status-item:last-child { border-bottom: none; }
+        .status-label { color: #666; font-size: 14px; }
+        .status-value {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .status-pending { color: #999; }
+        .status-success { color: #28a745; }
+        .status-error { color: #dc3545; }
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            display: none;
+        }
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+        }
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #667eea;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Supabase 连接测试</h1>
+        
+        <div class="status-card">
+            <div class="status-item">
+                <span class="status-label">配置文件</span>
+                <span class="status-value" id="config-status">检测中...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Supabase 连接</span>
+                <span class="status-value status-pending" id="connection-status">等待测试...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">数据表检查</span>
+                <span class="status-value status-pending" id="tables-status">待检测</span>
+            </div>
+        </div>
+        
+        <button class="btn" onclick="testConnection()" id="test-btn">
+            开始测试连接
+        </button>
+        
+        <div class="result" id="result"></div>
+        
+        <div style="margin-top: 20px; text-align: center;">
+            <a href="./" style="color: #667eea; text-decoration: none; font-size: 14px;">
+                ← 返回主应用
+            </a>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="js/supabase-client.js"></script>
+    
+    <script>
+        // Check configuration on load
+        function checkConfig() {
+            const statusEl = document.getElementById('config-status');
+            
+            if (typeof window.SUPABASE_CONFIG === 'undefined' || 
+                !window.SUPABASE_CONFIG.url || 
+                !window.SUPABASE_CONFIG.key) {
+                statusEl.textContent = '❌ 配置缺失';
+                statusEl.className = 'status-value status-error';
+                return false;
+            }
+            
+            statusEl.textContent = '✅ 已配置';
+            statusEl.className = 'status-value status-success';
+            return true;
+        }
+        
+        // Test connection
+        async function testConnection() {
+            const btn = document.getElementById('test-btn');
+            const resultEl = document.getElementById('result');
+            const connStatus = document.getElementById('connection-status');
+            const tablesStatus = document.getElementById('tables-status');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> 测试中...';
+            resultEl.className = 'result';
+            resultEl.textContent = '';
+            
+            // Remove old button if exists
+            const oldBtn = document.getElementById('enter-btn');
+            if (oldBtn) oldBtn.remove();
+            
+            try {
+                // Step 1: Check config
+                if (typeof window.SUPABASE_CONFIG === 'undefined') {
+                    throw new Error('配置文件未加载');
+                }
+                
+                // Step 2: Initialize client
+                if (!window.initSupabase) {
+                    throw new Error('Supabase client 未加载');
+                }
+                
+                const client = window.initSupabase(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.key);
+                if (!client) {
+                    throw new Error('Supabase 初始化失败');
+                }
+                
+                connStatus.innerHTML = '<span class="spinner"></span> 连接中...';
+                
+                // Step 3: Test query
+                const response = await client.query('users', { limit: 1 });
+                
+                if (response.error) {
+                    throw response.error;
+                }
+                
+                // Success
+                connStatus.textContent = '✅ 连接成功';
+                connStatus.className = 'status-value status-success';
+                
+                const recordCount = Array.isArray(response.data) ? response.data.length : 0;
+                tablesStatus.textContent = `✅ 表结构正常 (${recordCount} 条记录)`;
+                tablesStatus.className = 'status-value status-success';
+                
+                resultEl.innerHTML = `
+                    <strong>🎉 恭喜！测试通过！</strong><br><br>
+                    Supabase 连接成功，数据表结构正常。<br>
+                    现在可以开始使用刷题应用了。
+                `;
+                resultEl.className = 'result success';
+                
+                // Add enter app button
+                const enterBtn = document.createElement('button');
+                enterBtn.className = 'btn';
+                enterBtn.id = 'enter-btn';
+                enterBtn.style.marginTop = '10px';
+                enterBtn.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
+                enterBtn.textContent = '🚀 进入刷题应用';
+                enterBtn.onclick = () => {
+                    window.location.href = './';
+                };
+                resultEl.after(enterBtn);
+                
+            } catch (error) {
+                console.error('Test error:', error);
+                
+                connStatus.textContent = '❌ 连接失败';
+                connStatus.className = 'status-value status-error';
+                
+                tablesStatus.textContent = '❌ 未检测';
+                tablesStatus.className = 'status-value status-error';
+                
+                let errorMsg = error.message || 'Unknown error';
+                let solution = '';
+                
+                if (errorMsg.includes('fetch') || errorMsg.includes('network')) {
+                    solution = '请检查网络连接，确认 URL 格式正确（以 https:// 开头，.supabase.co 结尾）';
+                } else if (errorMsg.includes('does not exist') || errorMsg.includes('undefined')) {
+                    solution = '<strong>数据表未创建！</strong>请在 Supabase 的 SQL Editor 中运行建表脚本';
+                } else if (errorMsg.includes('row-level') || errorMsg.includes('permission')) {
+                    solution = '权限错误，请在 SQL Editor 中运行：<code>ALTER TABLE users DISABLE ROW LEVEL SECURITY;</code>';
+                } else if (errorMsg.includes('加载') || errorMsg.includes('初始化')) {
+                    solution = '请确保 config.js、supabase-client.js、storage-sync.js 文件都存在';
+                }
+                
+                resultEl.innerHTML = `
+                    <strong>❌ 连接失败</strong><br><br>
+                    <strong>错误信息：</strong>${errorMsg}<br><br>
+                    ${solution ? '<strong>解决方案：</strong><br>' + solution + '<br><br>' : ''}
+                    <strong>排查清单：</strong><br>
+                    1. ✓ config.js 已配置（当前值：<code>${window.SUPABASE_CONFIG ? window.SUPABASE_CONFIG.url : '未配置'}</code>）<br>
+                    2. ✓ Supabase 数据表已创建<br>
+                    3. ✓ 网络连接正常<br>
+                    4. ✓ 查看浏览器控制台(F12)获取详细错误
+                `;
+                resultEl.className = 'result error';
+                
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '重新测试';
+            }
+        }
+        
+        // Auto check on load
+        window.onload = checkConfig;
+    </script>
+</body>
+</html>

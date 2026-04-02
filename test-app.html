@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>刷题应用 - 修复版</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/user.css">
+</head>
+<body>
+    <div id="app">
+        <div id="home-page" class="page active">
+            <div class="header">
+                <div class="header-user">
+                    <button class="user-switch-btn" onclick="showUserManager()">
+                        <span class="user-icon">👤</span>
+                        <span class="user-name" id="current-username">加载中...</span>
+                        <span class="user-arrow">▼</span>
+                    </button>
+                </div>
+                <h1>📚 刷题打卡</h1>
+            </div>
+            
+            <div class="grade-selector">
+                <h2>选择学期</h2>
+                <div class="semester-buttons">
+                    <button class="semester-btn" data-sem="upper">上册</button>
+                    <button class="semester-btn selected" data-sem="lower">下册</button>
+                </div>
+            </div>
+            
+            <div style="text-align:center;margin:20px 0;">
+                <button class="grade-btn" style="width:100%;padding:15px;font-size:16px;" onclick="startPractice()">开始练习</button>
+            </div>
+            
+            <div class="stats-preview">
+                <h3>📊 学习统计</h3>
+                <div class="stats-grid">
+                    <div class="stat-item"><div class="stat-value" id="stat-days">0</div><div class="stat-label">天数</div></div>
+                    <div class="stat-item"><div class="stat-value" id="stat-total">0</div><div class="stat-label">题数</div></div>
+                    <div class="stat-item"><div class="stat-value" id="stat-correct">0%</div><div class="stat-label">正确率</div></div>
+                </div>
+            </div>
+            
+            <div class="quick-access">
+                <h2>🚀 快捷</h2>
+                <div class="quick-buttons">
+                    <button class="quick-btn" onclick="location.href='#wrong'">📝 错题</button>
+                    <button class="quick-btn" onclick="location.href='#history'">📅 历史</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="user-page" class="page">
+            <div class="header">
+                <button class="back-btn" onclick="showPage('home')">← 返回</button>
+                <h1>👤 用户管理</h1>
+            </div>
+            <div class="user-manager">
+                <div class="add-user-section">
+                    <h3>新建用户</h3>
+                    <div class="add-user-form">
+                        <input type="text" id="new-username" placeholder="用户名" maxlength="10">
+                        <button class="add-user-btn" onclick="addUser()">添加</button>
+                    </div>
+                </div>
+                <div class="user-list-section">
+                    <h3>用户列表</h3>
+                    <div class="user-list" id="user-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 内联配置 -->
+    <script>
+        window.SUPABASE_CONFIG = {
+            url: 'https://ykdrfaxnskddeadjelfo.supabase.co',
+            key: 'sb_publishable_bllSTGpgcriW48780EwXxQ_6kKvUs10'
+        };
+        console.log('✅ Config loaded inline');
+    </script>
+    
+    <!-- Supabase Client -->
+    <script>
+    (function(window) {
+        class SupabaseClient {
+            constructor(url, key) {
+                this.url = url.replace(/\/$/, '');
+                this.headers = { 'apikey': key, 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' };
+            }
+            async query(table, opts = {}) {
+                const params = new URLSearchParams();
+                if (opts.eq) Object.entries(opts.eq).forEach(([k,v]) => params.append(k, 'eq.' + v));
+                params.append('select', opts.select || '*');
+                const res = await fetch(this.url + '/rest/v1/' + table + '?' + params, { headers: this.headers });
+                if (!res.ok) { const e = await res.json(); return { data: null, error: e }; }
+                return { data: await res.json(), error: null };
+            }
+            async insert(table, data) {
+                const res = await fetch(this.url + '/rest/v1/' + table, {
+                    method: 'POST', headers: { ...this.headers, 'Prefer': 'return=representation' }, body: JSON.stringify(data)
+                });
+                if (!res.ok) { const e = await res.json(); return { data: null, error: e }; }
+                return { data: await res.json(), error: null };
+            }
+            async delete(table, id) {
+                const res = await fetch(this.url + '/rest/v1/' + table + '?id=eq.' + id, { method: 'DELETE', headers: this.headers });
+                return { data: res.ok, error: res.ok ? null : {} };
+            }
+            async deleteAll(table, filters) {
+                const params = new URLSearchParams();
+                Object.entries(filters).forEach(([k,v]) => params.append(k, 'eq.' + v));
+                const res = await fetch(this.url + '/rest/v1/' + table + '?' + params, { method: 'DELETE', headers: this.headers });
+                return { data: res.ok, error: res.ok ? null : {} };
+            }
+        }
+        
+        let client = null;
+        window.initSupabase = function(url, key) {
+            client = new SupabaseClient(url, key);
+            console.log('✅ Supabase client initialized');
+            return client;
+        };
+        window.getSupabase = function() { return client; };
+    })(window);
+    console.log('✅ Supabase client loaded');
+    </script>
+    
+    <!-- Storage -->
+    <script>
+    (function(window) {
+        window.Storage = {
+            _client: null,
+            async init() {
+                this._client = window.initSupabase(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.key);
+                console.log('✅ Storage initialized');
+                return true;
+            },
+            getCurrentUserId() { return sessionStorage.getItem('quiz_user'); },
+            setCurrentUser(id) { sessionStorage.setItem('quiz_user', id); },
+            async getUsers() { const r = await this._client.query('users'); return r.data || []; },
+            async createUser(name) {
+                const id = 'user_' + Date.now();
+                await this._client.insert('users', { id, name, total_days: 0, total_questions: 0 });
+                this.setCurrentUser(id);
+                return { id, name };
+            },
+            async deleteUser(id) {
+                await this._client.deleteAll('practice_history', { user_id: id });
+                await this._client.deleteAll('wrong_questions', { user_id: id });
+                await this._client.delete('users', id);
+                if (this.getCurrentUserId() === id) sessionStorage.removeItem('quiz_user');
+            },
+            async getStats() {
+                const uid = this.getCurrentUserId();
+                if (!uid) return { totalDays: 0, totalQuestions: 0, totalCorrect: 0, accuracy: 0 };
+                const r = await this._client.query('practice_history', { eq: { user_id: uid } });
+                const h = r.data || [];
+                const totalQuestions = h.reduce((s,x) => s + (x.total_questions||0), 0);
+                const totalCorrect = h.reduce((s,x) => s + (x.correct_count||0), 0);
+                return { totalDays: new Set(h.map(x=>x.created_at?.split('T')[0])).size, totalQuestions, totalCorrect, accuracy: totalQuestions ? Math.round(totalCorrect/totalQuestions*100) : 0 };
+            },
+            async addHistory(r) {
+                const uid = this.getCurrentUserId();
+                await this._client.insert('practice_history', { id: 'h_'+Date.now(), user_id: uid, ...r });
+            },
+            async addWrongQuestion(q, ans) {
+                const uid = this.getCurrentUserId();
+                await this._client.insert('wrong_questions', { id: 'w_'+Date.now(), user_id: uid, question_id: q.id, question: q.question, options: q.options, answer: q.answer, user_answer: ans, explanation: q.explanation, subject: q.subject });
+            },
+            async getWrongQuestions() { const r = await this._client.query('wrong_questions', { eq: { user_id: this.getCurrentUserId() } }); return r.data || []; },
+            async removeWrongQuestion(id) { await this._client.delete('wrong_questions', id); },
+            async clearWrongQuestions() { await this._client.deleteAll('wrong_questions', { user_id: this.getCurrentUserId() }); },
+            async getPracticeState() { return null; },
+            async savePracticeState() {},
+            async clearPracticeState() {}
+        };
+        console.log('✅ Storage loaded');
+    })(window);
+    </script>
+    
+    <!-- App Logic -->
+    <script>
+    let currentSem = 'lower';
+    let currentUserId = null;
+    
+    async function init() {
+        await Storage.init();
+        await checkUser();
+        bindEvents();
+        updateStats();
+    }
+    
+    async function checkUser() {
+        const users = await Storage.getUsers();
+        if (users.length === 0) {
+            await Storage.createUser('默认用户');
+        }
+        currentUserId = Storage.getCurrentUserId() || users[0]?.id;
+        if (!currentUserId && users.length > 0) {
+            currentUserId = users[0].id;
+            Storage.setCurrentUser(currentUserId);
+        }
+        document.getElementById('current-username').textContent = '用户 ' + currentUserId?.substr(-4) || '未登录';
+        console.log('✅ User checked:', currentUserId);
+    }
+    
+    function bindEvents() {
+        document.querySelectorAll('.semester-btn').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.semester-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                currentSem = btn.dataset.sem;
+            };
+        });
+    }
+    
+    async function updateStats() {
+        const s = await Storage.getStats();
+        document.getElementById('stat-days').textContent = s.totalDays;
+        document.getElementById('stat-total').textContent = s.totalQuestions;
+        document.getElementById('stat-correct').textContent = s.accuracy + '%';
+    }
+    
+    function showPage(p) {
+        document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+        document.getElementById(p + '-page').classList.add('active');
+    }
+    
+    function showUserManager() { showPage('user'); renderUsers(); }
+    
+    async function renderUsers() {
+        const users = await Storage.getUsers();
+        document.getElementById('user-list').innerHTML = users.map(u => 
+            '<div class="user-item">' + u.name + ' <button onclick="Storage.deleteUser(\''+u.id+'\').then(renderUsers).then(updateStats)">删除</button></div>'
+        ).join('');
+    }
+    
+    async function addUser() {
+        const input = document.getElementById('new-username');
+        if (!input.value) return alert('输入用户名');
+        await Storage.createUser(input.value);
+        input.value = '';
+        await checkUser();
+        await updateStats();
+        renderUsers();
+    }
+    
+    function startPractice() {
+        alert('开始练习 - 学期：' + currentSem + '\n(完整功能需要题库数据)');
+    }
+    
+    window.onload = init;
+    </script>
+</body>
+</html>
