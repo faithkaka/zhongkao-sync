@@ -240,15 +240,18 @@
             async uploadAvatar(file, userId) {
                 const fileName = userId + '_' + Date.now() + '.jpg';
                 const formData = new FormData();
-                formData.append('file', file);
-                const fetchRes = await fetch(this.url + '/storage/v1/objects/avatars/' + fileName, {
+                formData.append('', file);
+                const fetchRes = await fetch(this.url + '/storage/v1/object/avatars/' + fileName, {
                     method: 'POST',
-                    headers: { 'Authorization': this.headers.Authorization, 'x-upsert': 'true' },
+                    headers: { 
+                        'Authorization': this.headers.Authorization,
+                        'x-upsert': 'true' 
+                    },
                     body: formData
                 });
                 if (!fetchRes.ok) { const e = await fetchRes.json(); return { data: null, error: e }; }
-                const publicUrl = this.url + '/storage/v1/objects/public/avatars/' + fileName;
-                return { data: { url: publicUrl }, error: null };
+                const publicUrl = this.url + '/storage/v1/object/public/avatars/' + fileName;
+                return { data: { url: publicUrl, fileName: fileName }, error: null };
             }
             async deleteAvatar(fileName) {
                 const res = await fetch(this.url + '/storage/v1/objects/avatars/' + fileName, { method: 'DELETE', headers: this.headers });
@@ -318,6 +321,7 @@
             async uploadAvatar(file, userId) {
                 const r = await this._client.uploadAvatar(file, userId);
                 if (r.error) throw r.error;
+                console.log('Avatar uploaded:', r.data);
                 await this._client.update('users', userId, { avatar_url: r.data.url });
                 return r.data.url;
             },
