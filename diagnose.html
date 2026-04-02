@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Storage 诊断工具</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { background: #fff; padding: 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h1 { color: #333; margin-bottom: 20px; }
+        h2 { color: #666; font-size: 18px; margin-bottom: 15px; }
+        .status { padding: 10px 15px; border-radius: 8px; margin: 10px 0; }
+        .ok { background: #d4edda; color: #155724; }
+        .err { background: #f8d7da; color: #721c24; }
+        .warn { background: #fff3cd; color: #856404; }
+        pre { background: #f0f0f0; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 12px; white-space: pre-wrap; word-wrap: break-word; }
+        button { padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border: none; border-radius: 8px; cursor: pointer; margin: 5px; font-size: 14px; }
+        button:hover { opacity: 0.9; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; margin: 8px 0; }
+        label { font-weight: 600; color: #333; display: block; margin-top: 15px; }
+        .hint { font-size: 12px; color: #666; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Supabase Storage 诊断工具</h1>
+        
+        <div class="card">
+            <h2>📝 配置信息</h2>
+            <label>Supabase URL</label>
+            <input type="text" id="sb-url" value="https://ykdrfaxnskddeadjelfo.supabase.co" />
+            
+            <label>Anon Key</label>
+            <input type="text" id="sb-key" value="sb_publishable_bllSTGpgcriW48780EwXxQ_6kKvUs10" />
+            
+            <div class="hint">💡 提示：如果上传失败，可能需要使用 Service Role Key（在 Settings → API 中找到）</div>
+        </div>
+        
+        <div class="card">
+            <h2>🧪 诊断测试</h2>
+            <button onclick="testConnection()">1. 测试连接</button>
+            <button onclick="testBucket()">2. 检查存储桶</button>
+            <button onclick="testUpload()">3. 测试上传</button>
+            <button onclick="testPolicies()">4. 检查权限策略</button>
+            <div id="results"></div>
+        </div>
+        
+        <div class="card">
+            <h2>🔧 修复建议</h2>
+            <div id="suggestions"></div>
+        </div>
+        
+        <div class="card">
+            <h2>📋 SQL 修复脚本</h2>
+            <p style="margin-bottom: 10px;">在 Supabase → SQL Editor 中运行以下 SQL：</p>
+            <pre id="sql-script">-- 1. 创建存储桶
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- 2. 创建上传策略
+CREATE POLICY "public_upload" ON storage.objects
+FOR INSERT WITH CHECK (bucket_id = 'avatars');
+
+-- 3. 创建读取策略
+CREATE POLICY "public_read" ON storage.objects
+FOR SELECT USING (bucket_id = 'avatars');
+
+-- 4. 创建删除策略
+CREATE POLICY "public_delete" ON storage.objects
+FOR DELETE USING (bucket_id = 'avatars');</pre>
+            <button onclick="copySQL()">复制 SQL</button>
+        </div>
+    </div>
+    
+    <script>
+    const results = document.getElementById('results');
+    const suggestions = document.getElementById('suggestions');
+    
+    function log(html, type = '') {
+        const div = document.createElement('div');
+        div.className = 'status ' + type;
+        div.innerHTML = html;
+        results.appendChild(div);
+    }
+    
+    function getSuggestions(error) {
+        let html = '';
+        if (error.includes('Invalid Compact JWS') || error.includes('JWT')) {
+            html = `
+                <div class="status err">❌ JWT Token 验证失败</div>
+                <div class="status warn">
+                    <strong>解决方案：</strong><br>
+                    1. 确认 Anon Key 正确（在 Settings → API 中复制）<br>
+                    2. 检查存储桶是否为 Public<br>
+                    3. 运行上面的 SQL 脚本创建权限策略
+                </div>
+            `;
+        } else if (error.includes('not found') || error.includes('404')) {
+            html = `
+                <div class="status err">❌ 存储桶不存在</div>
+                <div class="status warn">
+                    <strong>解决方案：</strong><br>
+                    1. 在 Storage 页面创建 avatars 存储桶<br>
+                    2. 确保设置为 Public<br>
+                    3. 运行上面的 SQL 脚本
+                </div>
+            `;
+        } else if (error.includes('permission') || error.includes('403')) {
+            html = `
+                <div class="status err">❌ 权限不足</div>
+                <div class="status warn">
+                    <strong>解决方案：</strong><br>
+                    1. 运行上面的 SQL 脚本创建策略<br>
+                    2. 或临时使用 Service Role Key 测试
+                </div>
+            `;
+        }
+        suggestions.innerHTML = html;
+    }
+    
+    async function testConnection() {
+        log('⏳ 测试连接中...', 'warn');
+        const url = document.getElementById('sb-url').value;
+        const key = document.getElementById('sb-key').value;
+        
+        try {
+            const res = await fetch(url + '/rest/v1/users?limit=1', {
+                headers: {
+                    'apikey': key,
+                    'Authorization': 'Bearer ' + key
+                }
+            });
+            
+            if (res.ok) {
+                log('✅ 连接成功！API 可用', 'ok');
+                getSuggestions('');
+            } else {
+                const e = await res.json();
+                log('❌ 连接失败：' + (e.message || res.status), 'err');
+                getSuggestions(e.message || '');
+            }
+        } catch (e) {
+            log('❌ 请求失败：' + e.message, 'err');
+            getSuggestions(e.message);
+        }
+    }
+    
+    async function testBucket() {
+        log('⏳ 检查存储桶...', 'warn');
+        const url = document.getElementById('sb-url').value;
+        const key = document.getElementById('sb-key').value;
+        
+        try {
+            const res = await fetch(url + '/storage/v1/bucket/avatars', {
+                headers: {
+                    'apikey': key,
+                    'Authorization': 'Bearer ' + key
+                }
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                log('✅ 存储桶 avatars 存在，Public: ' + (data.public ? '是' : '否'), 'ok');
+            } else {
+                log('❌ 存储桶不存在或无权限', 'err');
+                getSuggestions('Bucket not found');
+            }
+        } catch (e) {
+            log('❌ 检查失败：' + e.message, 'err');
+            getSuggestions(e.message);
+        }
+    }
+    
+    async function testUpload() {
+        log('⏳ 测试上传...', 'warn');
+        const url = document.getElementById('sb-url').value;
+        const key = document.getElementById('sb-key').value;
+        const fileName = 'test_' + Date.now() + '.txt';
+        const testContent = 'Test upload from diagnostic tool';
+        
+        try {
+            const formData = new FormData();
+            formData.append('', new Blob([testContent], { type: 'text/plain' }));
+            
+            const res = await fetch(url + '/storage/v1/object/avatars/' + fileName, {
+                method: 'POST',
+                headers: {
+                    'apikey': key,
+                    'Authorization': 'Bearer ' + key,
+                    'x-upsert': 'true'
+                },
+                body: formData
+            });
+            
+            const data = await res.json();
+            
+            if (res.ok) {
+                log('✅ 上传成功！文件：' + fileName, 'ok');
+                log('📎 访问 URL: <a href="' + url + '/storage/v1/object/public/avatars/' + fileName + '" target="_blank">点击查看</a>', 'ok');
+                getSuggestions('');
+            } else {
+                log('❌ 上传失败：' + (data.message || res.status), 'err');
+                console.error('Upload error:', data);
+                getSuggestions(data.message || '');
+            }
+        } catch (e) {
+            log('❌ 请求失败：' + e.message, 'err');
+            console.error('Upload error:', e);
+            getSuggestions(e.message);
+        }
+    }
+    
+    async function testPolicies() {
+        log('⏳ 检查权限策略...', 'warn');
+        const url = document.getElementById('sb-url').value;
+        const key = document.getElementById('sb-key').value;
+        
+        try {
+            const res = await fetch(url + '/rest/v1/policies?select=policyname,tablename&tablename=eq.objects', {
+                headers: {
+                    'apikey': key,
+                    'Authorization': 'Bearer ' + key
+                }
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                log('✅ 找到 ' + data.length + ' 个策略', 'ok');
+                log('<pre>' + JSON.stringify(data, null, 2) + '</pre>');
+            } else {
+                log('⚠️ 无法获取策略列表', 'warn');
+            }
+        } catch (e) {
+            log('❌ 检查失败：' + e.message, 'err');
+        }
+    }
+    
+    function copySQL() {
+        const sql = document.getElementById('sql-script').textContent;
+        navigator.clipboard.writeText(sql).then(() => {
+            alert('✅ SQL 已复制到剪贴板');
+        });
+    }
+    </script>
+</body>
+</html>

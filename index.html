@@ -241,26 +241,37 @@
             }
             async uploadAvatar(file, userId) {
                 const fileName = userId + '_' + Date.now() + '.jpg';
-                const formData = new FormData();
-                formData.append('', file);
                 
-                // 使用正确的 Supabase Storage 认证头
-                const fetchRes = await fetch(this.url + '/storage/v1/object/avatars/' + fileName, {
+                // 直接使用 Supabase Storage API
+                const formData = new FormData();
+                formData.append(file.name || 'avatar.jpg', file);
+                
+                const uploadUrl = this.url + '/storage/v1/object/avatars/' + encodeURIComponent(fileName);
+                console.log('📤 Uploading to:', uploadUrl);
+                
+                const fetchRes = await fetch(uploadUrl, {
                     method: 'POST',
-                    headers: { 
-                        'apikey': this.headers.apikey,
-                        'Authorization': 'Bearer ' + this.headers.apikey,
-                        'x-upsert': 'true'
+                    headers: {
+                        'Authorization': 'Bearer ' + window.SUPABASE_CONFIG.key
                     },
                     body: formData
                 });
-                if (!fetchRes.ok) { 
-                    const e = await fetchRes.json(); 
-                    console.error('Upload error:', e);
-                    return { data: null, error: e }; 
+                
+                // 上传成功返回 200，但响应体可能为空
+                if (fetchRes.status === 200 || fetchRes.status === 201) {
+                    const publicUrl = this.url + '/storage/v1/object/public/avatars/' + encodeURIComponent(fileName);
+                    console.log('✅ Upload success:', publicUrl);
+                    return { data: { url: publicUrl, fileName: fileName }, error: null };
                 }
-                const publicUrl = this.url + '/storage/v1/object/public/avatars/' + fileName;
-                return { data: { url: publicUrl, fileName: fileName }, error: null };
+                
+                // 只有失败时才解析 JSON
+                try {
+                    const e = await fetchRes.json();
+                    console.error('Upload error:', e);
+                    return { data: null, error: new Error(e.message || 'Upload failed') };
+                } catch (parseErr) {
+                    return { data: null, error: new Error('上传失败，状态码：' + fetchRes.status) };
+                }
             }
             async deleteAvatar(fileName) {
                 const res = await fetch(this.url + '/storage/v1/object/avatars/' + fileName, { 
@@ -587,15 +598,19 @@
         const uid = Storage.getUid();
         if (!uid) return alert('请先登录');
         document.getElementById('upload-status').textContent = '⏳ 上传中...';
+        console.log('Starting upload for user:', uid, 'File:', app.selectedAvatarFile);
         try {
             const url = await Storage.uploadAvatar(app.selectedAvatarFile, uid);
+            console.log('Upload success:', url);
             document.getElementById('upload-status').textContent = '✅ 上传成功！';
             document.getElementById('avatar-preview').src = url;
+            document.getElementById('avatar-preview').style.display = 'block';
+            document.getElementById('avatar-placeholder').style.display = 'none';
             document.getElementById('current-user-avatar').src = url;
             document.getElementById('current-user-avatar').style.display = 'inline-block';
             document.getElementById('current-user-icon').style.display = 'none';
             app.selectedAvatarFile = null;
-            showUserManager();
+            setTimeout(() => showUserManager(), 500);
         } catch (e) {
             console.error('Avatar upload error:', e);
             document.getElementById('upload-status').textContent = '❌ 上传失败：' + e.message;
