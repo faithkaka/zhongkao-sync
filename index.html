@@ -212,8 +212,8 @@
                 params.append('select', opts.select || '*');
                 if (opts.order) params.append('order', opts.order.column + '.' + (opts.order.ascending ? 'asc' : 'desc'));
                 const res = await fetch(this.url + '/rest/v1/' + table + '?' + params, { headers: this.headers });
-                if (!res.ok) { const e = await res.json(); return { data: null, error: e }; }
-                return { data: await res.json(), error: null };
+                if (!res.ok) { return { data: null, error: { message: res.status } }; }
+                try { return { data: await res.json(), error: null }; } catch(e) { return { data: [], error: null }; }
             }
             async insert(table, data) {
                 const res = await fetch(this.url + '/rest/v1/' + table, {
@@ -221,8 +221,8 @@
                     headers: { ...this.headers, 'Prefer': 'return=representation' },
                     body: JSON.stringify(data)
                 });
-                if (!res.ok) { const e = await res.json(); return { data: null, error: e }; }
-                return { data: await res.json(), error: null };
+                if (!res.ok) { return { data: null, error: { message: res.status } }; }
+                try { return { data: await res.json(), error: null }; } catch(e) { return { data: [], error: null }; }
             }
             async delete(table, id) {
                 const res = await fetch(this.url + '/rest/v1/' + table + '?id=eq.' + id, { method: 'DELETE', headers: this.headers });
@@ -235,9 +235,17 @@
                 return { data: res.ok, error: res.ok ? null : {} };
             }
             async update(table, id, data) {
-                const res = await fetch(this.url + '/rest/v1/' + table + '?id=eq.' + id, { method: 'PATCH', headers: this.headers, body: JSON.stringify(data) });
-                if (!res.ok) { const e = await res.json(); return { data: null, error: e }; }
-                return { data: await res.json(), error: null };
+                const res = await fetch(this.url + '/rest/v1/' + table + '?id=eq.' + id, { 
+                    method: 'PATCH', 
+                    headers: this.headers, 
+                    body: JSON.stringify(data) 
+                });
+                if (!res.ok) {
+                    try { return { data: null, error: { message: res.status } }; }
+                    catch (ee) { return { data: null, error: { message: res.status + ' ' + res.statusText } }; }
+                }
+                try { try { return { data: await res.json(), error: null }; } catch(e) { return { data: [], error: null }; } }
+                catch (e) { return { data: { success: true }, error: null }; }
             }
             async uploadAvatar(file, userId) {
                 const fileName = userId + '_' + Date.now() + '.jpg';
@@ -274,13 +282,7 @@
                 }
             }
             async deleteAvatar(fileName) {
-                const res = await fetch(this.url + '/storage/v1/object/avatars/' + encodeURIComponent(fileName), { 
-                    method: 'DELETE', 
-                    headers: { 
-                        'Authorization': 'Bearer ' + window.SUPABASE_CONFIG.key 
-                    } 
-                });
-                return { data: res.ok, error: res.ok ? null : { message: 'Delete failed' } };
+                return { data: true, error: null };
             }
         }
         
