@@ -14,6 +14,8 @@
     .spinner{width:50px;height:50px;border:4px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px}
     @keyframes spin{to{transform:rotate(360deg)}}
     .error-box{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#f8d7da;color:#721c24;padding:15px 25px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:10000;max-width:90%;text-align:center}
+    .user-avatar-img{width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid #fff}
+    .user-avatar-small{width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #e0e0e0}
     </style>
 </head>
 <body>
@@ -25,7 +27,8 @@
             <div class="header">
                 <div class="header-user">
                     <button class="user-switch-btn" onclick="showUserManager()">
-                        <span class="user-icon">👤</span>
+                        <img class="user-avatar-img" id="current-user-avatar" src="" alt="" style="display:none;" />
+                        <span class="user-icon" id="current-user-icon">👤</span>
                         <span class="user-name" id="current-username">加载中...</span>
                         <span class="user-arrow">▼</span>
                     </button>
@@ -159,6 +162,23 @@
                     <div class="user-list" id="user-list"></div>
                 </div>
             </div>
+            <div class="avatar-upload-section" style="margin-top:20px;padding:20px;background:#f8f9fa;border-radius:12px;">
+                <h3>🖼️ 上传头像</h3>
+                <p style="color:#666;font-size:13px;margin-bottom:15px;">当前用户： <strong id="upload-username"></strong></p>
+                <div style="display:flex;align-items:center;gap:20px;">
+                    <div style="width:80px;height:80px;border-radius:50%;overflow:hidden;background:#e0e0e0;display:flex;align-items:center;justify-content:center;">
+                        <img id="avatar-preview" src="" style="width:100%;height:100%;object-fit:cover;display:none;" />
+                        <span id="avatar-placeholder" style="font-size:32px;color:#999;">👤</span>
+                    </div>
+                    <div style="flex:1;">
+                        <input type="file" id="avatar-file" accept="image/*" style="display:none;" onchange="handleAvatarUpload(this)" />
+                        <button class="grade-btn" style="padding:10px 20px;" onclick="document.getElementById('avatar-file').click()">选择图片</button>
+                        <button class="grade-btn" style="padding:10px 20px;margin-left:10px;background:#28a745;" onclick="uploadAvatar()">上传</button>
+                        <button class="grade-btn" style="padding:10px 20px;margin-left:10px;background:#dc3545;" onclick="removeAvatar()">删除</button>
+                    </div>
+                </div>
+                <div id="upload-status" style="margin-top:10px;font-size:13px;color:#666;"></div>
+            </div>
         </div>
     </div>
 
@@ -216,6 +236,23 @@
                 const res = await fetch(this.url + '/rest/v1/' + table + '?id=eq.' + id, { method: 'PATCH', headers: this.headers, body: JSON.stringify(data) });
                 if (!res.ok) { const e = await res.json(); return { data: null, error: e }; }
                 return { data: await res.json(), error: null };
+            }
+            async uploadAvatar(file, userId) {
+                const fileName = userId + '_' + Date.now() + '.jpg';
+                const formData = new FormData();
+                formData.append('file', file);
+                const fetchRes = await fetch(this.url + '/storage/v1/objects/avatars/' + fileName, {
+                    method: 'POST',
+                    headers: { 'Authorization': this.headers.Authorization, 'x-upsert': 'true' },
+                    body: formData
+                });
+                if (!fetchRes.ok) { const e = await fetchRes.json(); return { data: null, error: e }; }
+                const publicUrl = this.url + '/storage/v1/objects/public/avatars/' + fileName;
+                return { data: { url: publicUrl }, error: null };
+            }
+            async deleteAvatar(fileName) {
+                const res = await fetch(this.url + '/storage/v1/objects/avatars/' + fileName, { method: 'DELETE', headers: this.headers });
+                return { data: res.ok, error: res.ok ? null : {} };
             }
         }
         
@@ -277,7 +314,21 @@
                 const d = { id: 'st_' + uid, user_id: uid, grade: s.selectedGrade, semester: s.selectedSemester, questions: s.currentQuestions, current_index: s.currentIndex, user_answers: s.userAnswers, elapsed_seconds: s.elapsedSeconds };
                 if (ex.data && ex.data.length > 0) await this._client.update('practice_state', 'st_' + uid, d); else await this._client.insert('practice_state', d);
             },
-            async clearState() { await this._client.delete('practice_state', 'st_' + this.getUid()); }
+            async clearState() { await this._client.delete('practice_state', 'st_' + this.getUid()); },
+            async uploadAvatar(file, userId) {
+                const r = await this._client.uploadAvatar(file, userId);
+                if (r.error) throw r.error;
+                await this._client.update('users', userId, { avatar_url: r.data.url });
+                return r.data.url;
+            },
+            async removeAvatar(userId) {
+                await this._client.update('users', userId, { avatar_url: null });
+            },
+            async getAvatar(userId) {
+                const r = await this._client.query('users', { eq: { id: userId } });
+                if (r.data && r.data.length > 0) return r.data[0].avatar_url;
+                return null;
+            }
         };
         
         console.log('✅ All core modules loaded');
@@ -293,6 +344,7 @@
     const app = {
         state: { sem: 'lower', questions: [], idx: 0, answers: [], selected: null, elapsed: 0 },
         semesters: { upper: '上册', lower: '下册' },
+        selectedAvatarFile: null,
         
         async init() {
             console.log('🚀 App initializing...');
@@ -330,6 +382,14 @@
             if (!uid || !users.find(u => u.id === uid)) Storage.setUid(users[0].id);
             const user = users.find(u => u.id === Storage.getUid());
             document.getElementById('current-username').textContent = user ? user.name : '未登录';
+            if (user && user.avatar_url) {
+                document.getElementById('current-user-avatar').src = user.avatar_url;
+                document.getElementById('current-user-avatar').style.display = 'inline-block';
+                document.getElementById('current-user-icon').style.display = 'none';
+            } else {
+                document.getElementById('current-user-avatar').style.display = 'none';
+                document.getElementById('current-user-icon').style.display = 'inline-block';
+            }
             console.log('Current user:', document.getElementById('current-username').textContent);
         },
         
@@ -490,6 +550,72 @@
     
     function showPage(p) { app.showPage(p); }
     function startPractice() { app.startPractice(); }
+    
+    async function handleAvatarUpload(input) {
+        const file = input.files[0];
+        if (!file) return;
+        app.selectedAvatarFile = file;
+        const preview = document.getElementById('avatar-preview');
+        const placeholder = document.getElementById('avatar-placeholder');
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = 'block';
+        placeholder.style.display = 'none';
+        document.getElementById('upload-status').textContent = '已选择：' + file.name;
+    }
+    
+    async function uploadAvatar() {
+        if (!app.selectedAvatarFile) return alert('请先选择图片');
+        const uid = Storage.getUid();
+        if (!uid) return alert('请先登录');
+        document.getElementById('upload-status').textContent = '⏳ 上传中...';
+        try {
+            const url = await Storage.uploadAvatar(app.selectedAvatarFile, uid);
+            document.getElementById('upload-status').textContent = '✅ 上传成功！';
+            document.getElementById('avatar-preview').src = url;
+            document.getElementById('current-user-avatar').src = url;
+            document.getElementById('current-user-avatar').style.display = 'inline-block';
+            document.getElementById('current-user-icon').style.display = 'none';
+            app.selectedAvatarFile = null;
+            showUserManager();
+        } catch (e) {
+            console.error('Avatar upload error:', e);
+            document.getElementById('upload-status').textContent = '❌ 上传失败：' + e.message;
+        }
+    }
+    
+    async function removeAvatar() {
+        const uid = Storage.getUid();
+        if (!uid) return alert('请先登录');
+        if (!confirm('确定删除头像？')) return;
+        try {
+            await Storage.removeAvatar(uid);
+            document.getElementById('avatar-preview').style.display = 'none';
+            document.getElementById('avatar-placeholder').style.display = 'block';
+            document.getElementById('current-user-avatar').style.display = 'none';
+            document.getElementById('current-user-icon').style.display = 'inline-block';
+            document.getElementById('upload-status').textContent = '✅ 头像已删除';
+            showUserManager();
+        } catch (e) {
+            document.getElementById('upload-status').textContent = '❌ 删除失败：' + e.message;
+        }
+    }
+    
+    async function showUserManager() {
+        app.showPage('user');
+        const users = await Storage.getUsers();
+        const uid = Storage.getUid();
+        const currentUser = users.find(u => u.id === uid);
+        document.getElementById('upload-username').textContent = currentUser ? currentUser.name : '未登录';
+        if (currentUser && currentUser.avatar_url) {
+            document.getElementById('avatar-preview').src = currentUser.avatar_url;
+            document.getElementById('avatar-preview').style.display = 'block';
+            document.getElementById('avatar-placeholder').style.display = 'none';
+        } else {
+            document.getElementById('avatar-preview').style.display = 'none';
+            document.getElementById('avatar-placeholder').style.display = 'block';
+        }
+        document.getElementById('user-list').innerHTML = users.map(u => '<div class="user-item"><div class="user-info"><img class="user-avatar-small" src="' + (u.avatar_url || '') + '" style="width:40px;height:40px;border-radius:50%;object-fit:cover;margin-right:12px;' + (u.avatar_url ? '' : 'display:none;') + '" /><div class="user-avatar">' + (u.avatar_url ? '' : '👤') + '</div><div class="user-details"><div class="user-name-text">' + u.name + '</div><div class="user-stats">' + (u.total_days || 0) + '天·' + (u.total_questions || 0) + '题</div></div></div><div class="user-actions">' + (u.id === uid ? '<span class="user-current-badge">当前</span>' : '<button class="user-btn switch" onclick="Storage.setUid(\'' + u.id + '\');location.reload()">切换</button>') + '<button class="user-btn delete" onclick="Storage.deleteUser(\'' + u.id + '\');location.reload()">删除</button></div></div>').join('');
+    }
     
     window.addEventListener('load', () => app.init());
     </script>
