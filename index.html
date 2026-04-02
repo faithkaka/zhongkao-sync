@@ -2,9 +2,11 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Cache-Control" content="no-cache">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>浙江初中刷题打卡 - 云同步版</title>
+    <title>浙江初中刷题打卡 - 云同步版 v2</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/user.css">
     <link rel="stylesheet" href="css/badge.css">
@@ -241,20 +243,33 @@
                 const fileName = userId + '_' + Date.now() + '.jpg';
                 const formData = new FormData();
                 formData.append('', file);
+                
+                // 使用正确的 Supabase Storage 认证头
                 const fetchRes = await fetch(this.url + '/storage/v1/object/avatars/' + fileName, {
                     method: 'POST',
                     headers: { 
-                        'Authorization': this.headers.Authorization,
-                        'x-upsert': 'true' 
+                        'apikey': this.headers.apikey,
+                        'Authorization': 'Bearer ' + this.headers.apikey,
+                        'x-upsert': 'true'
                     },
                     body: formData
                 });
-                if (!fetchRes.ok) { const e = await fetchRes.json(); return { data: null, error: e }; }
+                if (!fetchRes.ok) { 
+                    const e = await fetchRes.json(); 
+                    console.error('Upload error:', e);
+                    return { data: null, error: e }; 
+                }
                 const publicUrl = this.url + '/storage/v1/object/public/avatars/' + fileName;
                 return { data: { url: publicUrl, fileName: fileName }, error: null };
             }
             async deleteAvatar(fileName) {
-                const res = await fetch(this.url + '/storage/v1/objects/avatars/' + fileName, { method: 'DELETE', headers: this.headers });
+                const res = await fetch(this.url + '/storage/v1/object/avatars/' + fileName, { 
+                    method: 'DELETE', 
+                    headers: { 
+                        'apikey': this.headers.apikey,
+                        'Authorization': 'Bearer ' + this.headers.apikey 
+                    } 
+                });
                 return { data: res.ok, error: res.ok ? null : {} };
             }
         }
